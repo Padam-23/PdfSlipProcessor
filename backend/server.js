@@ -45,11 +45,15 @@ const authRoutes = require("./routes/auth");
 const uploadRoutes = require("./routes/upload");
 const processRoutes = require("./routes/process");
 const usageRoutes = require("./routes/usage");
+const licenseRoutes = require("./routes/license");
+const adminRoutes = require("./routes/admin");
 
 app.use("/auth", authRoutes);
 app.use("/upload", uploadRoutes);
 app.use("/process", processRoutes);
 app.use("/usage", usageRoutes);
+app.use("/license", licenseRoutes);
+app.use("/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.json({ message: "PDF Slip Processor API" });

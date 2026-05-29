@@ -5,8 +5,9 @@ import { motion } from "framer-motion"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { FileText, Upload, User, Download, LogOut, Loader2, AlertCircle, Menu } from "lucide-react"
+import { FileText, Upload, User, Download, LogOut, Loader2, AlertCircle, Menu, Shield, Clock } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
+import { supabase } from "@/lib/supabase"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
 
@@ -17,14 +18,21 @@ interface UserData {
   pdf_used: number
 }
 
+interface LicenseInfo {
+  license_status: string
+  days_remaining: number
+  expires_at: string | null
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const [user, setUser] = useState<UserData | null>(null)
+  const [licenseInfo, setLicenseInfo] = useState<LicenseInfo | null>(null)
   const [slipFile, setSlipFile] = useState<File | null>(null)
   const [reportFile, setReportFile] = useState<File | null>(null)
   const [processing, setProcessing] = useState(false)
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null)
-  const [sessionId, setSessionId] = useState<string>(uuidv4())
+  const [sessionId] = useState<string>(uuidv4())
   const [error, setError] = useState("")
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
@@ -36,14 +44,39 @@ export default function DashboardPage() {
       return
     }
     setUser(JSON.parse(userStr))
-    fetchUsage()
+    checkLicense(token)
+    fetchUsage(token)
   }, [router])
 
-  const fetchUsage = async () => {
+  const checkLicense = async (token: string) => {
     try {
-      const token = localStorage.getItem("token")
+      const res = await fetch(`${API_URL}/license/status`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        // License check failed — could be expired or revoked
+        router.push("/activate")
+        return
+      }
+
+      setLicenseInfo(data)
+
+      if (data.license_status !== "active") {
+        router.push("/activate")
+      }
+    } catch (err) {
+      console.error("License check failed:", err)
+      router.push("/activate")
+    }
+  }
+
+  const fetchUsage = async (token?: string) => {
+    try {
+      const t = token || localStorage.getItem("token")
       const res = await fetch(`${API_URL}/usage`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${t}` },
       })
       if (res.ok) {
         const data = await res.json()
@@ -55,7 +88,8 @@ export default function DashboardPage() {
     }
   }
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
     localStorage.removeItem("token")
     localStorage.removeItem("user")
     router.push("/")
@@ -70,12 +104,15 @@ export default function DashboardPage() {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        "X-Session-Id": sessionId
+        "X-Session-Id": sessionId,
       },
-      body: formData
+      body: formData,
     })
 
-    if (!res.ok) throw new Error("Upload failed")
+    if (!res.ok) {
+      const data = await res.json()
+      throw new Error(data.message || "Upload failed")
+    }
   }
 
   const handleProcess = async () => {
@@ -98,8 +135,8 @@ export default function DashboardPage() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-          "X-Session-Id": sessionId
-        }
+          "X-Session-Id": sessionId,
+        },
       })
 
       const data = await res.json()
@@ -108,6 +145,10 @@ export default function DashboardPage() {
       setDownloadUrl(data.downloadUrl)
       fetchUsage()
     } catch (err: any) {
+      if (err.message?.includes("License required") || err.message?.includes("license")) {
+        router.push("/activate")
+        return
+      }
       setError(err.message)
     } finally {
       setProcessing(false)
@@ -116,19 +157,34 @@ export default function DashboardPage() {
 
   const usagePercent = user ? Math.min(100, (user.pdf_used / user.pdf_limit) * 100) : 0
 
+  const licenseWarning = licenseInfo && licenseInfo.days_remaining <= 5 && licenseInfo.days_remaining > 0
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b relative z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center gap-x-3">
             <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <FileText className="h-5 w-5 text-white" />
             </div>
             <h1 className="text-xl font-bold text-gray-900">PDF Slip Processor</h1>
           </div>
-          
+
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* License badge */}
+            {licenseInfo && (
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${
+                licenseWarning
+                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                  : "bg-green-50 text-green-700 border border-green-200"
+              }`}>
+                {licenseWarning ? <Clock className="w-3 h-3" /> : <Shield className="w-3 h-3" />}
+                {licenseInfo.days_remaining > 0
+                  ? `${licenseInfo.days_remaining}d left`
+                  : "Active"}
+              </div>
+            )}
             <div className="flex items-center space-x-2 text-sm text-gray-600">
               <User className="h-4 w-4" />
               <span>{user?.email}</span>
@@ -149,7 +205,7 @@ export default function DashboardPage() {
 
         {/* Mobile Menu Dropdown */}
         {isMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className="md:hidden absolute top-16 right-0 left-0 bg-white border-b shadow-lg"
@@ -159,6 +215,12 @@ export default function DashboardPage() {
                 <User className="h-4 w-4" />
                 <span>{user?.email}</span>
               </div>
+              {licenseInfo && (
+                <div className={`flex items-center gap-2 text-sm ${licenseWarning ? "text-amber-600" : "text-green-600"}`}>
+                  {licenseWarning ? <Clock className="h-4 w-4" /> : <Shield className="h-4 w-4" />}
+                  <span>License: {licenseInfo.days_remaining}d remaining</span>
+                </div>
+              )}
               <Button variant="secondary" className="w-full justify-start" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
@@ -174,6 +236,17 @@ export default function DashboardPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          {/* License expiry warning */}
+          {licenseWarning && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-center space-x-3">
+              <Clock className="h-5 w-5 text-amber-500" />
+              <p className="text-amber-700 text-sm">
+                Your license expires in <strong>{licenseInfo!.days_remaining} day{licenseInfo!.days_remaining !== 1 ? "s" : ""}</strong>.
+                Contact us on WhatsApp to renew.
+              </p>
+            </div>
+          )}
+
           <Card className="mb-8">
             <CardHeader>
               <CardTitle>Usage</CardTitle>

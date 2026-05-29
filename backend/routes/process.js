@@ -1,8 +1,8 @@
 const express = require("express");
 const router = express.Router();
 const { processFiles } = require("../controllers/processController");
-const { authenticateToken } = require("../middleware/auth");
+const { authenticateToken, requireActiveLicense } = require("../middleware/auth");
 
-router.post("/", authenticateToken, processFiles);
+router.post("/", authenticateToken, requireActiveLicense, processFiles);
 
 module.exports = router;

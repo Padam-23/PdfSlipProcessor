@@ -2,7 +2,6 @@
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
-    password_hash TEXT NOT NULL,
     pdf_limit INTEGER DEFAULT 50,
     pdf_used INTEGER DEFAULT 0,
     plan_expiry TIMESTAMP,
