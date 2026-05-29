@@ -168,7 +168,7 @@ const processFiles = async (req, res) => {
 
       await supabase
         .from("users")
-        .update({ pdf_used: user.pdf_used + 1 })
+        .update({ pdf_used: user.pdf_used + 2 })
         .eq("id", userId);
 
       await supabase
