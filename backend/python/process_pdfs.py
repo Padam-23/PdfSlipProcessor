@@ -211,7 +211,7 @@ def process_slip_pdf(pdf_path, output_dir):
     slip_region_ratios = [
 
         # slip 1
-        (0.048, 0.020, 0.806, 0.257),
+        (0.040, 0.0100, 0.900, 0.240),
 
         # slip 2
         (0.048, 0.302, 0.806, 0.554),
