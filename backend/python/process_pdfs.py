@@ -217,7 +217,7 @@ def process_slip_pdf(pdf_path, output_dir):
         (0.010, 0.340, 0.805, 0.640),
 
         # slip 3
-        (0.010, 0.680, 0.805, 0.940)
+        (0.010, 0.680, 0.805, 0.960)
     ]
 
     for img in pdf_page_generator(pdf_path):
