@@ -211,13 +211,13 @@ def process_slip_pdf(pdf_path, output_dir):
     slip_region_ratios = [
 
         # slip 1
-        (0.010, 0.0080, 0.805, 0.300),
+        (0.048, 0.020, 0.806, 0.257),
 
         # slip 2
-        (0.010, 0.340, 0.805, 0.640),
+        (0.048, 0.302, 0.806, 0.554),
 
         # slip 3
-        (0.010, 0.680, 0.805, 0.960)
+        (0.048, 0.570, 0.806, 0.887)
     ]
 
     for img in pdf_page_generator(pdf_path):
